@@ -1,0 +1,850 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>관리자 - 대화 로그</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        body {
+            font-family: 'Noto Sans KR', sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: radial-gradient(circle at center, #808080 0%, #707070 20%, #606060 40%, #505050 60%, #404040 80%, #303030 100%);
+            min-height: 100vh;
+        }
+        .header {
+            background: radial-gradient(circle at center, #e0e0e0 0%, #d0d0d0 20%, #c0c0c0 40%, #b0b0b0 60%, #a0a0a0 80%, #909090 100%);
+            padding: 20px;
+            border-radius: 0px;
+            box-shadow: 
+                0 10px 30px rgba(0,0,0,0.4),
+                inset 0 1px 0 rgba(255,255,255,0.9),
+                inset 0 -1px 0 rgba(0,0,0,0.2);
+            margin-bottom: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border: 1px solid #808080;
+        }
+        .header h1 {
+            margin: 0;
+            color: #333;
+        }
+        .header-buttons {
+            display: flex;
+            gap: 10px;
+        }
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            text-decoration: none;
+            display: inline-block;
+            font-size: 14px;
+        }
+        .btn-primary {
+            background: radial-gradient(circle at center, #b0b0b0 0%, #a0a0a0 40%, #909090 70%, #808080 100%);
+            color: white;
+            box-shadow: 
+                0 3px 6px rgba(0,0,0,0.4),
+                inset 0 1px 0 rgba(255,255,255,0.6),
+                inset 0 -1px 0 rgba(0,0,0,0.3);
+        }
+        
+        .btn-blocked {
+            background: radial-gradient(circle at center, #dc3545 0%, #c82333 40%, #bd2130 70%, #a71e2a 100%);
+            color: white;
+            box-shadow: 
+                0 3px 6px rgba(0,0,0,0.4),
+                inset 0 1px 0 rgba(255,255,255,0.6),
+                inset 0 -1px 0 rgba(0,0,0,0.3);
+        }
+        
+        .btn-feedback {
+            background: radial-gradient(circle at center, #28a745 0%, #218838 40%, #1e7e34 70%, #155724 100%);
+            color: white;
+            box-shadow: 
+                0 3px 6px rgba(0,0,0,0.4),
+                inset 0 1px 0 rgba(255,255,255,0.6),
+                inset 0 -1px 0 rgba(0,0,0,0.3);
+        }
+        
+        .btn-feedback.dislike {
+            background: radial-gradient(circle at center, #dc3545 0%, #c82333 40%, #bd2130 70%, #a71e2a 100%);
+        }
+        
+        .btn-secondary {
+            background: radial-gradient(circle at center, #6c757d 0%, #5a6268 40%, #495057 70%, #343a40 100%);
+            color: white;
+            box-shadow: 
+                0 3px 6px rgba(0,0,0,0.4),
+                inset 0 1px 0 rgba(255,255,255,0.3),
+                inset 0 -1px 0 rgba(0,0,0,0.3);
+        }
+        .btn:hover {
+            transform: translateY(-2px);
+        }
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        .stat-card {
+            background: radial-gradient(circle at center, #e0e0e0 0%, #d0d0d0 20%, #c0c0c0 40%, #b0b0b0 60%, #a0a0a0 80%, #909090 100%);
+            padding: 20px;
+            border-radius: 0px;
+            box-shadow: 
+                0 5px 15px rgba(0,0,0,0.3),
+                inset 0 1px 0 rgba(255,255,255,0.9),
+                inset 0 -1px 0 rgba(0,0,0,0.2);
+            text-align: center;
+            border: 1px solid #808080;
+        }
+        .stat-number {
+            font-size: 24px;
+            font-weight: bold;
+            color: #667eea;
+        }
+        .stat-label {
+            color: #666;
+            margin-top: 5px;
+        }
+        .controls {
+            background: radial-gradient(circle at center, #e0e0e0 0%, #d0d0d0 20%, #c0c0c0 40%, #b0b0b0 60%, #a0a0a0 80%, #909090 100%);
+            padding: 20px;
+            border-radius: 0px;
+            box-shadow: 
+                0 5px 15px rgba(0,0,0,0.3),
+                inset 0 1px 0 rgba(255,255,255,0.9),
+                inset 0 -1px 0 rgba(0,0,0,0.2);
+            margin-bottom: 20px;
+            text-align: center;
+            border: 1px solid #808080;
+        }
+        .feedback-section {
+            background: radial-gradient(circle at center, #e0e0e0 0%, #d0d0d0 20%, #c0c0c0 40%, #b0b0b0 60%, #a0a0a0 80%, #909090 100%);
+            padding: 20px;
+            border-radius: 0px;
+            box-shadow: 
+                0 5px 15px rgba(0,0,0,0.3),
+                inset 0 1px 0 rgba(255,255,255,0.9),
+                inset 0 -1px 0 rgba(0,0,0,0.2);
+            margin-bottom: 20px;
+            border: 1px solid #808080;
+        }
+        .log-item {
+            background: radial-gradient(circle at center, #e0e0e0 0%, #d0d0d0 20%, #c0c0c0 40%, #b0b0b0 60%, #a0a0a0 80%, #909090 100%);
+            margin-bottom: 15px;
+            border-radius: 0px;
+            box-shadow: 
+                0 5px 15px rgba(0,0,0,0.3),
+                inset 0 1px 0 rgba(255,255,255,0.9),
+                inset 0 -1px 0 rgba(0,0,0,0.2);
+            overflow: hidden;
+            border: 1px solid #808080;
+        }
+        .log-header {
+            background: radial-gradient(circle at center, #f8f9fa 0%, #e9ecef 20%, #dee2e6 40%, #ced4da 60%, #adb5bd 80%, #6c757d 100%);
+            padding: 15px;
+            border-bottom: 1px solid #dee2e6;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: inset 0 1px 0 rgba(255,255,255,0.9);
+        }
+        .log-time {
+            color: #666;
+            font-size: 14px;
+        }
+        .log-status {
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+        .status-success {
+            background: #d4edda;
+            color: #155724;
+        }
+        .status-fallback {
+            background: #f8d7da;
+            color: #721c24;
+        }
+        .log-content {
+            padding: 20px;
+        }
+        .log-question {
+            background: radial-gradient(circle at center, #f8f9fa 0%, #e9ecef 20%, #dee2e6 40%, #ced4da 60%, #adb5bd 80%, #6c757d 100%);
+            padding: 15px;
+            border-radius: 0px;
+            margin-bottom: 15px;
+            border: 1px solid #dee2e6;
+        }
+        .log-answer {
+            background: radial-gradient(circle at center, #f8f9fa 0%, #e9ecef 20%, #dee2e6 40%, #ced4da 60%, #adb5bd 80%, #6c757d 100%);
+            padding: 15px;
+            border-radius: 0px;
+            white-space: pre-wrap;
+            line-height: 1.5;
+            border: 1px solid #dee2e6;
+        }
+        .feedback-item {
+            background: radial-gradient(circle at center, #f8f9fa 0%, #e9ecef 20%, #dee2e6 40%, #ced4da 60%, #adb5bd 80%, #6c757d 100%);
+            padding: 15px;
+            margin-bottom: 10px;
+            border-radius: 0px;
+            border: 1px solid #dee2e6;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .feedback-content {
+            flex: 1;
+        }
+        .feedback-type {
+            padding: 4px 8px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: bold;
+            margin-left: 10px;
+        }
+        .feedback-like {
+            background: #d4edda;
+            color: #155724;
+        }
+        .feedback-dislike {
+            background: #f8d7da;
+            color: #721c24;
+        }
+        .loading {
+            text-align: center;
+            color: #666;
+            padding: 40px;
+        }
+        .no-logs {
+            text-align: center;
+            color: #666;
+            padding: 40px;
+            font-size: 18px;
+        }
+        .auto-refresh {
+            margin-left: 10px;
+            font-size: 12px;
+            color: #666;
+        }
+        .tab-content {
+            display: none;
+        }
+        .tab-content.active {
+            display: block;
+        }
+        .btn-warning {
+            background: radial-gradient(circle at center, #ffc107 0%, #e0a800 40%, #d39e00 70%, #b08800 100%);
+            color: #212529;
+            box-shadow: 
+                0 3px 6px rgba(0,0,0,0.4),
+                inset 0 1px 0 rgba(255,255,255,0.6),
+                inset 0 -1px 0 rgba(0,0,0,0.3);
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        .form-group input, .form-group textarea {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+        .form-group textarea {
+            min-height: 100px;
+            resize: vertical;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>📊 관리자 - 대화 로그</h1>
+        <div class="header-buttons">
+            <a href="/" class="btn btn-primary">🤖 챗봇</a>
+            <button class="btn btn-primary" onclick="refreshData()">새로고침</button>
+            <a href="/admin/logout" class="btn btn-secondary">로그아웃</a>
+        </div>
+    </div>
+    
+    <div class="stats" id="stats">
+        <div class="loading">통계 로딩 중...</div>
+    </div>
+    
+    <div class="controls">
+        <div style="margin-bottom: 15px;">
+            <strong>탭 선택:</strong>
+            <button class="btn btn-primary" onclick="showTab('chat')" id="tab-chat">💬 대화 로그</button>
+            <button class="btn btn-feedback" onclick="showTab('feedback')" id="tab-feedback">👍 피드백 로그</button>
+            <button class="btn btn-warning" onclick="showTab('data')" id="tab-data">📚 데이터 관리</button>
+        </div>
+    </div>
+    
+    <!-- 대화 로그 탭 -->
+    <div id="chat-tab" class="tab-content active">
+        <div class="controls">
+            <div style="margin-bottom: 15px;">
+                <strong>카테고리별 필터:</strong>
+                <button class="btn btn-primary" onclick="loadLogsByCategory('all')" id="btn-all">전체</button>
+                <button class="btn btn-primary" onclick="loadLogsByCategory('신청방법')" id="btn-신청방법">신청방법</button>
+                <button class="btn btn-primary" onclick="loadLogsByCategory('품목')" id="btn-품목">품목</button>
+                <button class="btn btn-primary" onclick="loadLogsByCategory('등급신청조건')" id="btn-등급신청조건">등급신청조건</button>
+                <button class="btn btn-primary" onclick="loadLogsByCategory('본인부담률')" id="btn-본인부담률">본인부담률</button>
+                <button class="btn btn-primary" onclick="loadLogsByCategory('자격확인')" id="btn-자격확인">자격확인</button>
+                <button class="btn btn-blocked" onclick="loadLogsByCategory('차단된질문')" id="btn-차단된질문">차단된질문</button>
+                <button class="btn btn-primary" onclick="loadLogsByCategory('기타')" id="btn-기타">기타</button>
+            </div>
+            <div>
+                <strong>개수별 필터:</strong>
+                <button class="btn btn-primary" onclick="loadLogs(20)">최근 20개</button>
+                <button class="btn btn-primary" onclick="loadLogs(50)">최근 50개</button>
+                <button class="btn btn-primary" onclick="loadLogs(100)">최근 100개</button>
+                <button class="btn btn-primary" onclick="loadLogs()">전체</button>
+                <span class="auto-refresh">자동 새로고침: 30초</span>
+            </div>
+        </div>
+        
+        <div id="logs">
+            <div class="loading">로딩 중...</div>
+        </div>
+    </div>
+    
+    <!-- 피드백 로그 탭 -->
+    <div id="feedback-tab" class="tab-content">
+        <div class="feedback-section">
+            <h3>📊 피드백 필터</h3>
+            <div style="margin-top: 15px;">
+                <button class="btn btn-primary" onclick="loadFeedbackLogs('all')" id="btn-feedback-all">전체 피드백</button>
+                <button class="btn btn-feedback" onclick="loadFeedbackLogs('like')" id="btn-feedback-like">👍 좋아요만</button>
+                <button class="btn btn-feedback dislike" onclick="loadFeedbackLogs('dislike')" id="btn-feedback-dislike">👎 싫어요만</button>
+            </div>
+        </div>
+        
+        <div id="feedback-logs">
+            <div class="loading">피드백 로딩 중...</div>
+        </div>
+    </div>
+    
+    <!-- 데이터 관리 탭 -->
+    <div id="data-tab" class="tab-content">
+        <div class="feedback-section">
+            <h3>📚 벡터스토어 데이터 관리</h3>
+            
+            <!-- 새 데이터 추가 -->
+            <div style="margin-bottom: 30px; background: #f8f9fa; padding: 20px; border-radius: 5px;">
+                <h4>📝 새 데이터 추가</h4>
+                <div class="form-group">
+                    <label for="new-title">제목:</label>
+                    <input type="text" id="new-title" placeholder="새 문서의 제목을 입력하세요">
+                </div>
+                <div class="form-group">
+                    <label for="new-url">URL (선택사항):</label>
+                    <input type="text" id="new-url" placeholder="관련 URL이 있다면 입력하세요">
+                </div>
+                <div class="form-group">
+                    <label for="new-content">내용:</label>
+                    <textarea id="new-content" placeholder="새 문서의 내용을 입력하세요"></textarea>
+                </div>
+                <button class="btn btn-feedback" onclick="addNewData()">📄 데이터 추가</button>
+            </div>
+            
+            <!-- JSON 파일로 추가 -->
+            <div style="margin-bottom: 30px; background: #f8f9fa; padding: 20px; border-radius: 5px;">
+                <h4>📁 JSON 파일로 데이터 추가</h4>
+                <div class="form-group">
+                    <label for="json-filename">JSON 파일명:</label>
+                    <input type="text" id="json-filename" placeholder="예: new_data.json" value="">
+                </div>
+                <button class="btn btn-feedback" onclick="addFromJsonFile()">📁 JSON 파일 추가</button>
+            </div>
+            
+            <!-- 벡터스토어 재구축 -->
+            <div style="background: #fff3cd; padding: 20px; border-radius: 5px;">
+                <h4>🔄 벡터스토어 재구축</h4>
+                <p>⚠️ 주의: 이 작업은 기존 벡터스토어를 완전히 삭제하고 기본 JSON 데이터로만 재구축합니다.</p>
+                <button class="btn btn-blocked" onclick="rebuildVectorstore()">🔄 벡터스토어 재구축</button>
+            </div>
+        </div>
+        
+        <div id="data-result" style="margin-top: 20px;"></div>
+    </div>
+
+    <script>
+        let autoRefreshInterval;
+        let currentTab = 'chat';
+        
+        function formatTime(timestamp) {
+            const date = new Date(timestamp);
+            return date.toLocaleString('ko-KR');
+        }
+        
+        function getStatusText(status) {
+            return status === 'success' ? '성공' : '차단/오류';
+        }
+        
+        function getStatusClass(status) {
+            return status === 'success' ? 'status-success' : 'status-fallback';
+        }
+        
+        function showTab(tabName) {
+            currentTab = tabName;
+            
+            // 모든 탭 숨기기
+            document.querySelectorAll('.tab-content').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            
+            // 선택된 탭 보이기
+            document.getElementById(tabName + '-tab').classList.add('active');
+            
+            // 탭 버튼 스타일 업데이트
+            document.querySelectorAll('[id^="tab-"]').forEach(btn => {
+                btn.classList.remove('btn-feedback', 'btn-warning');
+                btn.classList.add('btn-primary');
+            });
+            
+            if (tabName === 'feedback') {
+                document.getElementById('tab-feedback').classList.remove('btn-primary');
+                document.getElementById('tab-feedback').classList.add('btn-feedback');
+                loadFeedbackLogs('all');
+            } else if (tabName === 'data') {
+                document.getElementById('tab-data').classList.remove('btn-primary');
+                document.getElementById('tab-data').classList.add('btn-warning');
+            } else {
+                document.getElementById('tab-chat').classList.remove('btn-primary');
+                document.getElementById('tab-chat').classList.add('btn-feedback');
+                loadLogs();
+            }
+        }
+        
+        async function loadStats() {
+            try {
+                const [chatResponse, feedbackResponse] = await Promise.all([
+                    fetch('/admin/api/logs'),
+                    fetch('/admin/api/feedback')
+                ]);
+                
+                const chatData = await chatResponse.json();
+                const feedbackData = await feedbackResponse.json();
+                
+                const totalQuestions = chatData.logs.length;
+                const successCount = chatData.logs.filter(log => log.status === 'success').length;
+                const fallbackCount = totalQuestions - successCount;
+                const successRate = totalQuestions > 0 ? Math.round((successCount / totalQuestions) * 100) : 0;
+                
+                const likeCount = feedbackData.feedback_logs.filter(f => f.feedback_type === 'like').length;
+                const dislikeCount = feedbackData.feedback_logs.filter(f => f.feedback_type === 'dislike').length;
+                const totalFeedback = likeCount + dislikeCount;
+                
+                // 카테고리별 통계 계산 (버튼 업데이트용)
+                const categoryStats = {};
+                chatData.logs.forEach(log => {
+                    const category = log.category || '기타';
+                    if (!categoryStats[category]) {
+                        categoryStats[category] = 0;
+                    }
+                    categoryStats[category]++;
+                });
+                
+                document.getElementById('stats').innerHTML = `
+                    <div class="stat-card">
+                        <div class="stat-number">${totalQuestions}</div>
+                        <div class="stat-label">전체 질문</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number">${successCount}</div>
+                        <div class="stat-label">성공</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number">${totalFeedback}</div>
+                        <div class="stat-label">총 피드백</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number">${likeCount}</div>
+                        <div class="stat-label">👍 좋아요</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number">${dislikeCount}</div>
+                        <div class="stat-label">👎 싫어요</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number">${successRate}%</div>
+                        <div class="stat-label">성공률</div>
+                    </div>
+                `;
+                
+                // 카테고리 버튼에 개수 표시 업데이트
+                updateCategoryButtonCounts(categoryStats);
+            } catch (error) {
+                console.error('통계 로드 실패:', error);
+            }
+        }
+        
+        function updateCategoryButtonCounts(categoryStats) {
+            // 전체 버튼 업데이트
+            const totalCount = Object.values(categoryStats).reduce((sum, count) => sum + count, 0);
+            const allButton = document.getElementById('btn-all');
+            if (allButton) {
+                allButton.textContent = `전체 (${totalCount})`;
+            }
+            
+            // 각 카테고리 버튼 업데이트
+            const categories = ['신청방법', '품목', '등급신청조건', '본인부담률', '자격확인', '차단된질문', '기타'];
+            categories.forEach(category => {
+                const button = document.getElementById(`btn-${category}`);
+                if (button) {
+                    const count = categoryStats[category] || 0;
+                    button.textContent = `${category} (${count})`;
+                }
+            });
+        }
+        
+        async function loadLogs(limit = null) {
+            try {
+                const url = limit ? `/admin/api/logs?limit=${limit}` : '/admin/api/logs';
+                const response = await fetch(url);
+                const data = await response.json();
+                
+                if (data.logs && data.logs.length > 0) {
+                    const logsHtml = data.logs.map(log => `
+                        <div class="log-item">
+                            <div class="log-header">
+                                <span class="log-time">${formatTime(log.timestamp)}</span>
+                                <span class="log-status ${getStatusClass(log.status)}">${getStatusText(log.status)}</span>
+                                <span class="log-category" style="background: #e9ecef; padding: 2px 6px; border-radius: 3px; font-size: 12px;">${log.category || '기타'}</span>
+                            </div>
+                            <div class="log-content">
+                                <div class="log-question">
+                                    <strong>질문:</strong> ${log.question}
+                                </div>
+                                <div class="log-answer">
+                                    <strong>답변:</strong> ${log.answer}
+                                </div>
+                            </div>
+                        </div>
+                    `).join('');
+                    
+                    document.getElementById('logs').innerHTML = logsHtml;
+                } else {
+                    document.getElementById('logs').innerHTML = '<div class="no-logs">아직 대화 기록이 없습니다.</div>';
+                }
+            } catch (error) {
+                console.error('로그 로드 실패:', error);
+                document.getElementById('logs').innerHTML = '<div class="loading">로드 실패</div>';
+            }
+        }
+        
+        async function loadLogsByCategory(category) {
+            try {
+                console.log(`카테고리 '${category}' 로딩 중...`);
+                const url = `/admin/api/logs?category=${category}`;
+                const response = await fetch(url);
+                const data = await response.json();
+                
+                console.log(`카테고리 '${category}' 결과:`, data.logs.length, '개 로그');
+                
+                if (data.logs && data.logs.length > 0) {
+                    const logsHtml = data.logs.map(log => `
+                        <div class="log-item">
+                            <div class="log-header">
+                                <span class="log-time">${formatTime(log.timestamp)}</span>
+                                <span class="log-status ${getStatusClass(log.status)}">${getStatusText(log.status)}</span>
+                                <span class="log-category" style="background: #e9ecef; padding: 2px 6px; border-radius: 3px; font-size: 12px;">${log.category || '기타'}</span>
+                            </div>
+                            <div class="log-content">
+                                <div class="log-question">
+                                    <strong>질문:</strong> ${log.question}
+                                </div>
+                                <div class="log-answer">
+                                    <strong>답변:</strong> ${log.answer}
+                                </div>
+                            </div>
+                        </div>
+                    `).join('');
+                    
+                    document.getElementById('logs').innerHTML = logsHtml;
+                } else {
+                    document.getElementById('logs').innerHTML = `<div class="no-logs">'${category}' 카테고리의 대화 기록이 없습니다. (총 ${data.logs ? data.logs.length : 0}개)</div>`;
+                }
+                
+                // 선택된 카테고리 버튼 하이라이트
+                highlightSelectedCategory(category);
+            } catch (error) {
+                console.error('카테고리별 로그 로드 실패:', error);
+                document.getElementById('logs').innerHTML = '<div class="loading">로드 실패</div>';
+            }
+        }
+        
+        async function loadFeedbackLogs(type = 'all') {
+            try {
+                const url = type === 'all' ? '/admin/api/feedback' : `/admin/api/feedback?type=${type}`;
+                const response = await fetch(url);
+                const data = await response.json();
+                
+                if (data.feedback_logs && data.feedback_logs.length > 0) {
+                    const feedbackHtml = data.feedback_logs.map(feedback => `
+                        <div class="feedback-item">
+                            <div class="feedback-content">
+                                <div style="margin-bottom: 10px;">
+                                    <strong>시간:</strong> ${formatTime(feedback.timestamp)}
+                                    <span class="feedback-type ${feedback.feedback_type === 'like' ? 'feedback-like' : 'feedback-dislike'}">
+                                        ${feedback.feedback_type === 'like' ? '👍 좋아요' : '👎 싫어요'}
+                                    </span>
+                                </div>
+                                <div style="margin-bottom: 5px;">
+                                    <strong>질문:</strong> ${feedback.question}
+                                </div>
+                                <div>
+                                    <strong>답변:</strong> ${feedback.answer.length > 100 ? feedback.answer.substring(0, 100) + '...' : feedback.answer}
+                                </div>
+                            </div>
+                        </div>
+                    `).join('');
+                    
+                    document.getElementById('feedback-logs').innerHTML = feedbackHtml;
+                } else {
+                    document.getElementById('feedback-logs').innerHTML = '<div class="no-logs">아직 피드백이 없습니다.</div>';
+                }
+                
+                // 선택된 피드백 버튼 하이라이트
+                highlightSelectedFeedback(type);
+            } catch (error) {
+                console.error('피드백 로드 실패:', error);
+                document.getElementById('feedback-logs').innerHTML = '<div class="loading">로드 실패</div>';
+            }
+        }
+        
+        function highlightSelectedCategory(selectedCategory) {
+            // 모든 카테고리 버튼의 스타일 초기화
+            const categories = ['all', '신청방법', '품목', '등급신청조건', '본인부담률', '자격확인', '차단된질문', '기타'];
+            categories.forEach(category => {
+                const button = document.getElementById(`btn-${category}`);
+                if (button) {
+                    if (category === '차단된질문') {
+                        button.style.background = 'radial-gradient(circle at center, #dc3545 0%, #c82333 40%, #bd2130 70%, #a71e2a 100%)';
+                    } else {
+                        button.style.background = 'radial-gradient(circle at center, #b0b0b0 0%, #a0a0a0 40%, #909090 70%, #808080 100%)';
+                    }
+                    button.style.transform = 'none';
+                }
+            });
+            
+            // 선택된 버튼 하이라이트
+            const selectedButton = document.getElementById(`btn-${selectedCategory}`);
+            if (selectedButton) {
+                if (selectedCategory === '차단된질문') {
+                    selectedButton.style.background = 'radial-gradient(circle at center, #e74c3c 0%, #dc3545 40%, #c82333 70%, #bd2130 100%)';
+                } else {
+                    selectedButton.style.background = 'radial-gradient(circle at center, #667eea 0%, #5a67d8 40%, #4c51bf 70%, #434190 100%)';
+                }
+                selectedButton.style.transform = 'translateY(-2px)';
+            }
+        }
+        
+        function highlightSelectedFeedback(selectedType) {
+            // 모든 피드백 버튼의 스타일 초기화
+            const types = ['all', 'like', 'dislike'];
+            types.forEach(type => {
+                const button = document.getElementById(`btn-feedback-${type}`);
+                if (button) {
+                    button.style.transform = 'none';
+                    if (type === 'dislike') {
+                        button.style.background = 'radial-gradient(circle at center, #dc3545 0%, #c82333 40%, #bd2130 70%, #a71e2a 100%)';
+                    } else if (type === 'like') {
+                        button.style.background = 'radial-gradient(circle at center, #28a745 0%, #218838 40%, #1e7e34 70%, #155724 100%)';
+                    } else {
+                        button.style.background = 'radial-gradient(circle at center, #b0b0b0 0%, #a0a0a0 40%, #909090 70%, #808080 100%)';
+                    }
+                }
+            });
+            
+            // 선택된 버튼 하이라이트
+            const selectedButton = document.getElementById(`btn-feedback-${selectedType}`);
+            if (selectedButton) {
+                selectedButton.style.transform = 'translateY(-2px)';
+            }
+        }
+        
+        function refreshData() {
+            loadStats();
+            if (currentTab === 'chat') {
+                loadLogs();
+            } else if (currentTab === 'feedback') {
+                loadFeedbackLogs('all');
+            }
+            // data 탭은 새로고침 없음
+        }
+        
+        // 새 데이터 추가 함수
+        async function addNewData() {
+            const title = document.getElementById('new-title').value.trim();
+            const content = document.getElementById('new-content').value.trim();
+            const url = document.getElementById('new-url').value.trim();
+            
+            if (!title || !content) {
+                alert('제목과 내용을 모두 입력해주세요.');
+                return;
+            }
+            
+            try {
+                const response = await fetch('/admin/add_data', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        title: title,
+                        content: content,
+                        url: url
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    document.getElementById('data-result').innerHTML = 
+                        `<div style="background: #d4edda; color: #155724; padding: 15px; border-radius: 5px; margin-top: 10px;">
+                            ✅ ${data.message}
+                        </div>`;
+                    
+                    // 폼 초기화
+                    document.getElementById('new-title').value = '';
+                    document.getElementById('new-content').value = '';
+                    document.getElementById('new-url').value = '';
+                } else {
+                    document.getElementById('data-result').innerHTML = 
+                        `<div style="background: #f8d7da; color: #721c24; padding: 15px; border-radius: 5px; margin-top: 10px;">
+                            ❌ 오류: ${data.error}
+                        </div>`;
+                }
+            } catch (error) {
+                document.getElementById('data-result').innerHTML = 
+                    `<div style="background: #f8d7da; color: #721c24; padding: 15px; border-radius: 5px; margin-top: 10px;">
+                        ❌ 네트워크 오류: ${error.message}
+                    </div>`;
+            }
+        }
+        
+        // JSON 파일로 데이터 추가 함수
+        async function addFromJsonFile() {
+            const filename = document.getElementById('json-filename').value.trim();
+            
+            if (!filename) {
+                alert('JSON 파일명을 입력해주세요.');
+                return;
+            }
+            
+            try {
+                const response = await fetch('/admin/add_data', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        json_file: filename
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    document.getElementById('data-result').innerHTML = 
+                        `<div style="background: #d4edda; color: #155724; padding: 15px; border-radius: 5px; margin-top: 10px;">
+                            ✅ ${data.message}
+                        </div>`;
+                    
+                    // 폼 초기화
+                    document.getElementById('json-filename').value = '';
+                } else {
+                    document.getElementById('data-result').innerHTML = 
+                        `<div style="background: #f8d7da; color: #721c24; padding: 15px; border-radius: 5px; margin-top: 10px;">
+                            ❌ 오류: ${data.error}
+                        </div>`;
+                }
+            } catch (error) {
+                document.getElementById('data-result').innerHTML = 
+                    `<div style="background: #f8d7da; color: #721c24; padding: 15px; border-radius: 5px; margin-top: 10px;">
+                        ❌ 네트워크 오류: ${error.message}
+                    </div>`;
+            }
+        }
+        
+        // 벡터스토어 재구축 함수
+        async function rebuildVectorstore() {
+            if (!confirm('정말로 벡터스토어를 재구축하시겠습니까? 추가로 넣은 모든 데이터가 삭제됩니다.')) {
+                return;
+            }
+            
+            try {
+                document.getElementById('data-result').innerHTML = 
+                    `<div style="background: #fff3cd; color: #856404; padding: 15px; border-radius: 5px; margin-top: 10px;">
+                        🔄 벡터스토어 재구축 중... 잠시만 기다려주세요.
+                    </div>`;
+                
+                const response = await fetch('/admin/rebuild_vectorstore', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    }
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    document.getElementById('data-result').innerHTML = 
+                        `<div style="background: #d4edda; color: #155724; padding: 15px; border-radius: 5px; margin-top: 10px;">
+                            ✅ ${data.message}
+                        </div>`;
+                } else {
+                    document.getElementById('data-result').innerHTML = 
+                        `<div style="background: #f8d7da; color: #721c24; padding: 15px; border-radius: 5px; margin-top: 10px;">
+                            ❌ 오류: ${data.error}
+                        </div>`;
+                }
+            } catch (error) {
+                document.getElementById('data-result').innerHTML = 
+                    `<div style="background: #f8d7da; color: #721c24; padding: 15px; border-radius: 5px; margin-top: 10px;">
+                        ❌ 네트워크 오류: ${error.message}
+                    </div>`;
+            }
+        }
+        
+        function startAutoRefresh() {
+            // 30초마다 자동 새로고침
+            autoRefreshInterval = setInterval(() => {
+                refreshData();
+            }, 30000);
+        }
+        
+        function stopAutoRefresh() {
+            if (autoRefreshInterval) {
+                clearInterval(autoRefreshInterval);
+            }
+        }
+        
+        // 페이지 로드 시 데이터 로드 및 자동 새로고침 시작
+        window.onload = function() {
+            refreshData();
+            startAutoRefresh();
+        };
+        
+        // 페이지 떠날 때 자동 새로고침 중지
+        window.onbeforeunload = function() {
+            stopAutoRefresh();
+        };
+    </script>
+</body>
+</html>
