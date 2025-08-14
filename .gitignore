@@ -1,18 +1,17 @@
-# 1) 기본적으로 전부 무시
-/*
+/*                 # 기본은 다 무시
+!/.gitignore       # .gitignore는 추적
 
-# 2) 하지만 아래는 허용(추가)
-!/.gitignore
-
-# templates 폴더 전체 허용 (하위 파일/폴더까지)
+# templates 전체 허용(디렉터리 자체 + 내부 모든 파일)
+!/templates/
 !/templates/**
-# 루트에 있는 .py 파일만 허용 (하위 폴더의 .py는 제외)
+
+# 루트에 있는 .py 파일만 허용
 !/*.py
 
-# 선택: 문서 몇 개는 허용하고 싶다면 추가
+# 선택적으로 허용할 파일들
 !/README.md
 !/requirements.txt
 
-# 절대 올리면 안 되는 비밀키/환경파일
-*.env
+# 절대 올리지 말 것(비밀/키)
 .env
+*.env
