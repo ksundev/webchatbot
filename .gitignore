@@ -1,17 +1,13 @@
 /*                 # 기본은 다 무시
-!/.gitignore       # .gitignore는 추적
+!/.gitignore       # 이 파일은 추적
 
-# templates 전체 허용(디렉터리 자체 + 내부 모든 파일)
+# templates 전체 허용
 !/templates/
 !/templates/**
 
-# 루트에 있는 .py 파일만 허용
+# 루트의 .py만 허용 (하위폴더 .py는 제외)
 !/*.py
 
-# 선택적으로 허용할 파일들
-!/README.md
-!/requirements.txt
-
-# 절대 올리지 말 것(비밀/키)
-.env
-*.env
+# 추가로 아예 막고 싶은 개별 항목(있으면)
+chat_log.csv
+*.pdf

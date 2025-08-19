@@ -67,8 +67,46 @@ def extract_text_from_hwp(path):
     except Exception as e:
         return f"❌ HWP 오류: {e}"
 
+def find_pdf_version(base_dir, pdf_name):
+    """PDF 폴더에서 PDF 버전의 파일을 찾습니다."""
+    # PDF 폴더 내에서 직접 검색
+    pdf_dir = os.path.join(base_dir, "pdf")
+    if os.path.exists(pdf_dir):
+        # 정확한 이름으로 검색
+        pdf_path = os.path.join(pdf_dir, pdf_name)
+        if os.path.exists(pdf_path):
+            return pdf_path
+        
+        # text/image 하위 폴더에서 검색
+        for subdir in ["text", "image"]:
+            subdir_path = os.path.join(pdf_dir, subdir)
+            if os.path.exists(subdir_path):
+                pdf_path = os.path.join(subdir_path, pdf_name)
+                if os.path.exists(pdf_path):
+                    return pdf_path
+        
+        # 파일명 일부로 검색
+        clean_name = pdf_name
+        if len(pdf_name) > 8:  # 날짜 프리픽스 제거
+            clean_name = pdf_name[8:]
+            
+        for root, _, files in os.walk(pdf_dir):
+            for f in files:
+                if f.endswith('.pdf') and (clean_name in f or pdf_name in f):
+                    return os.path.join(root, f)
+    
+    return None
+
 def find_file_in_subfolders(base_dir, file_name):
     """하위 폴더를 포함하여 파일을 검색합니다."""
+    # 0. PDF 버전이 있는지 먼저 확인 (HWP 파일인 경우)
+    if file_name.lower().endswith('.hwp'):
+        pdf_name = file_name.replace('.hwp', '.pdf').replace('.HWP', '.pdf')
+        pdf_path = find_pdf_version(base_dir, pdf_name)
+        if pdf_path:
+            print(f"✅ HWP 대신 PDF 버전 찾음: {os.path.basename(pdf_path)}")
+            return pdf_path
+    
     # 1. 정확한 파일명으로 검색
     for root, _, files in os.walk(base_dir):
         if file_name in files:
@@ -219,7 +257,22 @@ for idx, row in df.iterrows():
                     if ext == ".pdf":
                         text = extract_text_from_pdf(file_path)
                     elif ext == ".hwp":
-                        text = extract_text_from_hwp(file_path)
+                        # HWP 파일인 경우 PDF 버전이 있는지 확인
+                        pdf_path = file_path.replace(".hwp", ".pdf")
+                        if os.path.exists(pdf_path):
+                            print(f"✅ HWP 대신 PDF 버전 사용: {os.path.basename(pdf_path)}")
+                            text = extract_text_from_pdf(pdf_path)
+                        else:
+                            # PDF 폴더에서 동일한 이름의 PDF 파일 찾기 시도
+                            pdf_dir = os.path.join(attachments_dir, "pdf")
+                            pdf_filename = os.path.basename(file_path).replace(".hwp", ".pdf")
+                            pdf_path_in_dir = os.path.join(pdf_dir, pdf_filename)
+                            
+                            if os.path.exists(pdf_path_in_dir):
+                                print(f"✅ PDF 폴더에서 대체 파일 찾음: {pdf_filename}")
+                                text = extract_text_from_pdf(pdf_path_in_dir)
+                            else:
+                                text = extract_text_from_hwp(file_path)
                     else:
                         text = f"⚠️ 지원되지 않는 파일 형식: {ext}"
                     
@@ -265,6 +318,4 @@ print(f"💾 저장 완료: {output_file}")
 # 첨부파일 통계
 total_attachments = sum(len(item.get('attachments', [])) for item in final_data)
 print(f"📎 총 첨부파일: {total_attachments}개")
-
-
 

@@ -13,6 +13,8 @@ from langchain_core.prompts import PromptTemplate
 from langchain_openai import ChatOpenAI, OpenAIEmbeddings
 from dotenv import load_dotenv
 import json
+import threading
+import time
 
 app = Flask(__name__)
 app.secret_key = 'your-secret-key-here'  # 세션을 위한 시크릿 키
@@ -24,7 +26,7 @@ load_dotenv()
 ADMIN_PASSWORD = "1234"  # 실제 사용시 더 복잡한 비밀번호로 변경
 
 # PDF 경로와 벡터 저장 디렉토리 설정
-JSON_PATH = "rag_input_sample.json"
+JSON_PATH = "rag_input_sample1.json"
 VECTOR_DIR = "vectorstore"
 embeddings = OpenAIEmbeddings()
 
@@ -132,7 +134,8 @@ class ChatbotGuardrails:
 다음 질문이 노인복지용구와 관련이 있는지 판단해주세요.
 
 노인복지용구란: 노인의 일상생활을 돕는 의료기기나 보조기구 (휠체어, 침대, 보행기, 욕창방지용품, 안전손잡이 등)
-관련 주제: 복지용구 신청, 등급, 비용, 품목, 자격조건, 사용법, 대여/구입 등
+
+관련 주제: 복지용구 신청, 등급, 비용, 품목, 자격조건, 사용법, 대여/구입, 급여결정신청, 급여범위, 급여기준, 급여 관련 공고/고시/안내 등
 
 질문: "{question}"
 
@@ -493,11 +496,62 @@ def filter_relevant_context(question: str, retrieved_docs):
             if "관련있음" in result:
                 filtered_docs.append(doc)
                 
-        return filtered_docs[:10]  # 최대 10개만 사용
+        # 날짜 우선순위 정렬 적용 (현재 날짜 기준 가장 가까운 문서를 우선)
+        docs_with_priority = []
+        for doc in filtered_docs:
+            priority_info = assign_date_priority(doc)
+            docs_with_priority.append(priority_info)
+
+        # 높은 점수(가까운 날짜) 순으로 정렬
+        docs_with_priority.sort(key=lambda x: x['priority_score'], reverse=True)
+
+        # 정렬된 문서만 반환
+        final_docs = [item['doc'] for item in docs_with_priority]
+        return final_docs[:10]  # 최대 10개만 사용
         
     except Exception as e:
         print(f"컨텍스트 필터링 오류: {e}")
         return retrieved_docs[:10]  # 오류 시 원본 사용
+
+def assign_date_priority(doc):
+    """첨부파일 파일명에 있는 날짜(YYYYMMDD)를 찾아 최신일수록 높은 점수 부여"""
+    import re
+    from datetime import datetime
+
+    try:
+        text = getattr(doc, 'page_content', '') or ''
+        # "첨부파일: 파일명" 라인에서 파일명 추출
+        file_names = re.findall(r'첨부파일:\s*(.+)', text)
+
+        dates = []
+        for name in file_names:
+            s = name.strip()
+            m = re.search(r'^(\d{8})', s) or re.search(r'(\d{8})', s)
+            if m:
+                try:
+                    dt = datetime.strptime(m.group(1), '%Y%m%d')
+                    dates.append(dt)
+                except ValueError:
+                    pass
+
+        # 첨부파일에서 날짜가 하나라도 나오면, 가장 '최근'(가장 큰) 날짜를 점수로 사용
+        if dates:
+            best = max(dates)  # 최신 날짜
+            score = int(best.strftime('%Y%m%d'))  # 큰 숫자일수록 최신
+            return {'doc': doc, 'priority_score': score}
+
+        # 폴백: 문서 메타데이터(제목) 앞쪽에서 8자리 날짜가 있으면 사용
+        src = (doc.metadata or {}).get('source', '') or ''
+        m2 = re.search(r'^(\d{8})', src) or re.search(r'(\d{8})', src)
+        if m2:
+            dt2 = datetime.strptime(m2.group(1), '%Y%m%d')
+            score2 = int(dt2.strftime('%Y%m%d'))
+            return {'doc': doc, 'priority_score': score2}
+
+    except Exception:
+        pass
+
+    return {'doc': doc, 'priority_score': 0}
 
 def init_chain():
     vectorstore = init_vectorstore()
@@ -506,8 +560,9 @@ def init_chain():
     prompt = PromptTemplate.from_template(
         """너는 노인복지용구 및 장애인보조기기 전문 상담 챗봇이야. 
 
-
 사용자의 질문에 대해서 제공된 자료(context)를 참고해서, 어르신들이 이해하기 쉽고 읽기 편하게 한국어로 설명해줘.
+
+**중요: 최신 정보를 우선적으로 먼저 언급하고, 이전 정보는 참고사항으로 제시해주세요.**
 
 답변 작성 시 반드시 다음 마크다운 형식을 정확히 사용해주세요:
 
@@ -563,6 +618,7 @@ def init_chain():
 3. 마크다운 문법을 정확히 사용해주세요 (**굵은 글씨**, ✅, ⚠️ 등)
 4. 읽기 쉽도록 적절한 공백을 넣어주세요
 5. 답변은 반드시 끝까지 완성해주세요
+6. **최신 정보를 먼저 제시하고, 이전 정보는 참고사항으로 언급해주세요**
 
 
 #Context: 
@@ -577,9 +633,38 @@ def init_chain():
     llm = ChatOpenAI(model_name="gpt-4o", temperature=0, model_kwargs={"max_completion_tokens": 2000} )
     
     def get_filtered_context(question):
-        docs = retriever.get_relevant_documents(question)
-        filtered = filter_relevant_context(question, docs)
-        return "\n\n".join([doc.page_content for doc in filtered])
+        # 1단계: GPT로 질문을 검색 키워드로 정리
+        search_prompt = f"""
+사용자 질문: "{question}"
+
+이 질문에 답하기 위해 벡터스토어에서 찾아야 할 핵심 키워드 3-5개를 추출해주세요.
+키워드는 쉼표로 구분하고, 한국어로 작성해주세요.
+
+예시:
+질문: "8월 신규 급여결정신청 진행절차 진행과정알려줘"
+키워드: 급여결정신청, 신청절차, 진행과정, 8월, 신규
+
+키워드:"""
+
+        try:
+            llm = ChatOpenAI(model_name="gpt-3.5-turbo", temperature=0, max_tokens=50)
+            response = llm.invoke(search_prompt)
+            keywords = response.content.strip()
+            
+            # 2단계: 키워드로 벡터 검색 강화
+            enhanced_question = question + " " + keywords
+            docs = retriever.get_relevant_documents(enhanced_question)
+            
+            # 3단계: 관련성 필터링 및 날짜 정렬
+            filtered = filter_relevant_context(question, docs)
+            return "\n\n".join([doc.page_content for doc in filtered])
+            
+        except Exception as e:
+            print(f"키워드 추출 오류: {e}")
+            # 오류 시 기존 방식으로 진행
+            docs = retriever.get_relevant_documents(question)
+            filtered = filter_relevant_context(question, docs)
+            return "\n\n".join([doc.page_content for doc in filtered])
     
     chain = (
         {"context": get_filtered_context, "question": RunnablePassthrough()}
@@ -592,6 +677,9 @@ def init_chain():
 
 # 전역 변수로 체인 저장
 chain = init_chain()
+
+# 사용자별 마지막 질문 시간 추적
+user_last_question_time = {}
 
 @app.route('/')
 def home():
@@ -664,6 +752,23 @@ def ask():
     if not question:
         return jsonify({'answer': '질문을 입력해주세요.', 'is_fallback': True, 'success': False})
     
+    # 5초 쿨다운 체크
+    current_time = datetime.now()
+    if user_id in user_last_question_time:
+        time_diff = (current_time - user_last_question_time[user_id]).total_seconds()
+        if time_diff < 5:
+            remaining_time = 5 - time_diff
+            return jsonify({
+                'answer': f'잠시 후 다시 질문해주세요. ({remaining_time:.1f}초 남음)',
+                'is_fallback': True,
+                'success': False,
+                'cooldown': True,
+                'remaining_time': remaining_time
+            })
+    
+    # 마지막 질문 시간 업데이트
+    user_last_question_time[user_id] = current_time
+    
     # 가드레일 검증
     validation = guardrails.validate_question(question, user_id)
     if not validation['valid']:
@@ -682,12 +787,34 @@ def ask():
     
 
     
+    # 30초 타임아웃 설정
+    timeout_flag = {'timed_out': False}
+    
+    def timeout_callback():
+        timeout_flag['timed_out'] = True
+    
+    timer = threading.Timer(30.0, timeout_callback)
+    timer.start()
+    
     try:
         # RAG 체인 실행
         answer = chain.invoke(question)
+        
+        # 성공 시 타이머 취소
+        timer.cancel()
+        
+        if timeout_flag['timed_out']:
+            return jsonify({
+                'answer': '답변 생성 시간이 30초를 초과했습니다. 질문을 더 구체적으로 해주세요.',
+                'is_fallback': True,
+                'success': False,
+                'timeout': True
+            })
+        
         save_chat_log(question, answer, is_fallback=False)
         return jsonify({'question': question, 'answer': answer, 'success': True})
     except Exception as e:
+        timer.cancel()
         print(f"Error: {e}")
         fallback_msg = guardrails.get_fallback_response('search_error')
         save_chat_log(question, fallback_msg, is_fallback=True)
@@ -727,20 +854,36 @@ def add_documents_to_vectorstore(new_documents):
     """기존 벡터스토어에 새로운 문서들을 추가"""
     global vectorstore
     
+    # 기존 벡터스토어가 없으면 로드 (새로 생성하지 않음)
     if vectorstore is None:
-        vectorstore = init_vectorstore()
+        if os.path.exists(VECTOR_DIR):
+            vectorstore = FAISS.load_local(VECTOR_DIR, embeddings, allow_dangerous_deserialization=True)
+            print("✅ 기존 벡터스토어 로드 완료")
+        else:
+            print("❌ 기존 벡터스토어가 없습니다. 먼저 init_vectorstore()로 구축해주세요.")
+            return False
     
-    # 텍스트 분할
-    text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=120)
-    split_documents = text_splitter.split_documents(new_documents)
+    # 배치 처리 추가
+    batch_size = 5
+    total_chunks = 0
     
-    # 기존 벡터스토어에 추가
-    vectorstore.add_documents(split_documents)
+    for i in range(0, len(new_documents), batch_size):
+        batch = new_documents[i:i+batch_size]
+        print(f"📦 배치 {i//batch_size + 1}/{(len(new_documents)-1)//batch_size + 1} 처리 중... ({len(batch)}개 문서)")
+        
+        # 텍스트 분할
+        text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=120)
+        split_documents = text_splitter.split_documents(batch)
+        
+        # 기존 벡터스토어에 추가
+        vectorstore.add_documents(split_documents)
+        total_chunks += len(split_documents)
+        print(f"✅ 배치 {i//batch_size + 1} 추가 완료 ({len(split_documents)}개 청크)")
     
     # 저장
     vectorstore.save_local(VECTOR_DIR)
     
-    print(f"✅ 벡터스토어에 {len(split_documents)}개 청크 추가 완료")
+    print(f"✅ 벡터스토어에 총 {total_chunks}개 청크 추가 완료")
     return True
 
 def add_new_data_from_json(json_file_path):

@@ -17,7 +17,6 @@ LIST_URL = BASE_URL + "/npbs/cms/board/board/Board.jsp"
 ATTACH_DIR = "attachments"
 PDF_DIR = os.path.join(ATTACH_DIR, "pdf")
 HWP_DIR = os.path.join(ATTACH_DIR, "hwp")
-HWPX_DIR = os.path.join(ATTACH_DIR, "hwpx")  # 추가
 XLSX_DIR = os.path.join(ATTACH_DIR, "xlsx")
 XLS_DIR  = os.path.join(ATTACH_DIR, "xls")
 ZIP_DIR  = os.path.join(ATTACH_DIR, "zip")
@@ -26,7 +25,6 @@ PDF_IMAGE_DIR = os.path.join(PDF_DIR, "image")
 os.makedirs(ATTACH_DIR, exist_ok=True)
 os.makedirs(PDF_DIR, exist_ok=True)
 os.makedirs(HWP_DIR, exist_ok=True)
-os.makedirs(HWPX_DIR, exist_ok=True)  # 추가
 os.makedirs(XLSX_DIR, exist_ok=True)
 os.makedirs(XLS_DIR,  exist_ok=True)
 os.makedirs(ZIP_DIR,  exist_ok=True)
@@ -84,6 +82,13 @@ def split_pdf_by_content():
         # 이미지 여부 판정
         has_img = pdf_has_any_image(src)
         dst_dir = PDF_IMAGE_DIR if has_img else PDF_TEXT_DIR
+        
+        # 이미 동일한 이름의 파일이 있는지 확인
+        dst_file = os.path.join(dst_dir, fname)
+        if os.path.exists(dst_file):
+            print(f"⏭️ 이미 존재하는 파일 건너뜀: {fname}")
+            continue
+            
         dst = ensure_unique_path(dst_dir, fname)
         shutil.move(src, dst)
         moved["image" if has_img else "text"] += 1
@@ -91,9 +96,9 @@ def split_pdf_by_content():
 
     print(f"\n✅ 정리 완료: image {moved['image']}개, text {moved['text']}개")
 
-def convert_hwp_to_hwpx():
-    """다운로드된 HWP 파일들을 HWPX로 자동 변환"""
-    print("\n🔄 HWP → HWPX 자동 변환 시작...")
+def convert_hwp_to_pdf():
+    """다운로드된 HWP 파일들을 PDF로 자동 변환"""
+    print("\n🔄 HWP → PDF 변환 시작...")
     
     try:
         import win32com.client as win32
@@ -103,13 +108,15 @@ def convert_hwp_to_hwpx():
         return
     
     SRC = Path(HWP_DIR)
-    DST = Path(HWPX_DIR)
+    DST = Path(PDF_DIR)
+    PDF_TEXT = Path(PDF_TEXT_DIR)
+    PDF_IMAGE = Path(PDF_IMAGE_DIR)
     
     if not SRC.exists():
         print(f"⚠️ HWP 폴더가 없습니다: {SRC}")
         return
     
-    # HWPX 폴더 생성
+    # PDF 폴더 생성
     DST.mkdir(parents=True, exist_ok=True)
     
     # HWP 파일 목록
@@ -120,14 +127,24 @@ def convert_hwp_to_hwpx():
     
     print(f"📋 변환 대상 HWP 파일: {len(hwp_files)}개")
     
-    # 기존 변환된 파일 확인
-    existing_hwpx = set()
-    for hwpx_file in DST.rglob("*.hwpx"):
-        hwp_name = hwpx_file.stem + ".hwp"
-        existing_hwpx.add(hwp_name)
+    # 기존 변환된 파일 확인 (PDF 폴더 + 하위 폴더 모두 검사)
+    existing_pdf_files = set()
     
-    print(f"📋 기존 변환된 파일: {len(existing_hwpx)}개")
+    # PDF 기본 폴더 확인
+    for pdf_file in DST.glob("*.pdf"):
+        existing_pdf_files.add(pdf_file.stem)
     
+    # PDF 텍스트 폴더 확인
+    for pdf_file in PDF_TEXT.glob("*.pdf"):
+        existing_pdf_files.add(pdf_file.stem)
+    
+    # PDF 이미지 폴더 확인
+    for pdf_file in PDF_IMAGE.glob("*.pdf"):
+        existing_pdf_files.add(pdf_file.stem)
+    
+    print(f"📋 기존 변환된 PDF 파일: {len(existing_pdf_files)}개")
+    
+    # 방법 1: 직접 변환
     try:
         print("🔧 Hancom HWP COM 객체 실행...")
         hwp = win32.gencache.EnsureDispatch("HWPFrame.HwpObject")
@@ -152,14 +169,20 @@ def convert_hwp_to_hwpx():
         total += 1
         # SRC 기준 상대경로 유지 → DST에 같은 폴더 구조로 저장
         rel = src.relative_to(SRC)
-        out = DST / rel.with_suffix(".hwpx")
+        out = DST / rel.with_suffix(".pdf")
         out.parent.mkdir(parents=True, exist_ok=True)
+        
+        # 파일명(확장자 제외)이 이미 변환된 파일 목록에 있는지 확인
+        if src.stem in existing_pdf_files:
+            print(f"⏭️ {src.name} (이미 PDF로 변환된 파일이 존재함)")
+            skip += 1
+            continue
         
         # 이미 변환된 파일이 있는지 확인 (파일 크기도 체크)
         if out.exists():
             # 파일 크기가 0보다 큰지 확인 (정상적으로 변환된 파일인지)
             if out.stat().st_size > 0:
-                print(f"⏭️  {src.name} (이미 변환됨, {out.stat().st_size:,} bytes)")
+                print(f"⏭️ {src.name} (이미 변환됨, {out.stat().st_size:,} bytes)")
                 skip += 1
                 continue
             else:
@@ -170,18 +193,35 @@ def convert_hwp_to_hwpx():
             print(f"🔄 변환 중: {src.name}")
             
             # 절대 경로로 변환
-            src_abs = src.resolve()
-            out_abs = out.resolve()
+            src_abs = str(src.resolve())
+            out_abs = str(out.resolve())
             
             # 파일 열기
-            hwp.Open(str(src_abs))
+            hwp.Open(src_abs)
             
-            # 다른 이름으로 저장
-            hwp.SaveAs(str(out_abs), "HWPX")
+            # 방법 1: 직접 변환 시도
+            try:
+                hwp.SaveAs(out_abs, "PDF")
+                success = True
+            except:
+                success = False
+            
+            # 방법 1이 실패하면 방법 2 시도
+            if not success or not out.exists() or out.stat().st_size == 0:
+                print("  방법 1 실패, 방법 2 시도 중...")
+                try:
+                    hwp.HAction.GetDefault("FileSaveAsPdf", hwp.HParameterSet.HFileOpenSave.HSet)
+                    hwp.HParameterSet.HFileOpenSave.filename = out_abs
+                    hwp.HParameterSet.HFileOpenSave.Format = "PDF"
+                    hwp.HAction.Execute("FileSaveAsPdf", hwp.HParameterSet.HFileOpenSave.HSet)
+                except:
+                    pass
             
             # 파일 확인
             if out.exists() and out.stat().st_size > 0:
                 print(f"✅ 변환 완료: {src.name} → {out.name} ({out.stat().st_size:,} bytes)")
+                # 변환 성공한 파일 목록에 추가
+                existing_pdf_files.add(src.stem)
                 ok += 1
             else:
                 print(f"❌ 변환 실패: {src.name}")
@@ -201,8 +241,8 @@ def convert_hwp_to_hwpx():
     print(f"\n📊 변환 요약: 총 {total}개 / 변환 {ok}개 / 건너뜀 {skip}개 / 실패 {fail}개")
     
     # 결과 확인
-    hwpx_files = list(DST.rglob("*.hwpx"))
-    print(f"📂 HWPX 폴더 내 총 파일 수: {len(hwpx_files)}개")
+    pdf_files = list(DST.rglob("*.pdf"))
+    print(f"📂 PDF 폴더 내 총 파일 수: {len(pdf_files)}개")
 
 def sanitize_filename(name: str) -> str:
     # 윈도우 금칙문자 제거 + 앞뒤 공백 정리
@@ -213,15 +253,6 @@ def sanitize_filename(name: str) -> str:
     if len(root) > 180:
         root = root[:180]
     return root + ext
-
-def ensure_unique_path(dirpath: str, filename: str) -> str:
-    base, ext = os.path.splitext(filename)
-    candidate = os.path.join(dirpath, filename)
-    i = 1
-    while os.path.exists(candidate):
-        candidate = os.path.join(dirpath, f"{base}_{i}{ext}")
-        i += 1
-    return candidate
 
 def extract_reg_date_prefix(soup: BeautifulSoup) -> str:
     """페이지 내 YYYY/MM/DD, YYYY-MM-DD, YYYY.MM.DD → YYYYMMDD로 변환"""
@@ -239,10 +270,6 @@ def extract_reg_date_prefix(soup: BeautifulSoup) -> str:
         y, mo, d = m.group(1), int(m.group(2)), int(m.group(3))
         return f"{y}{mo:02d}{d:02d}"
     return "00000000"
-
-def sanitize_filename(name: str) -> str:
-    """윈도우 금칙문자 제거"""
-    return re.sub(r'[\\/:*?"<>|]', '_', name)
 
 def get_board_ids(page):
     params = {
@@ -270,8 +297,17 @@ def download_file(file_url, file_name):
 
     ext = os.path.splitext(file_name)[-1].lower()
     target_dir = EXT_DIRS.get(ext, ATTACH_DIR)
-
-    save_path = os.path.join(target_dir, file_name)  # ✅ 고정 경로(덮어쓰기)
+    
+    save_path = os.path.join(target_dir, file_name)
+    
+    # PDF 파일인 경우 PDF_TEXT_DIR와 PDF_IMAGE_DIR에도 중복 확인
+    if ext == ".pdf":
+        # PDF 기본 폴더, 텍스트 폴더, 이미지 폴더 모두 확인
+        if (os.path.exists(save_path) or 
+            os.path.exists(os.path.join(PDF_TEXT_DIR, file_name)) or 
+            os.path.exists(os.path.join(PDF_IMAGE_DIR, file_name))):
+            print(f"⏭️ 이미 존재하는 PDF 파일 건너뜀: {file_name}")
+            return save_path
 
     try:
         with requests.get(file_url, headers=headers, allow_redirects=True, timeout=30, stream=True) as r:
@@ -292,7 +328,7 @@ def download_file(file_url, file_name):
                 pass
             return None
 
-        print(f"📥 다운로드 성공(덮어쓰기 포함): {os.path.relpath(save_path)}")
+        print(f"📥 다운로드 성공: {os.path.relpath(save_path)}")
         return save_path
 
     except Exception as e:
@@ -377,8 +413,8 @@ if __name__ == "__main__":
     save_to_csv(all_data)
     print("\n📁 모든 게시물을 CSV 파일로 저장 완료!")
     
+    # 🔄 HWP → PDF 자동 변환
+    convert_hwp_to_pdf()
+    
     # 📂 PDF 자동 분류
     split_pdf_by_content()
-    
-    # 🔄 HWP → HWPX 자동 변환
-    convert_hwp_to_hwpx()
