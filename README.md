@@ -73,3 +73,4 @@ python remote_client.py <친구_컴퓨터_IP> [포트번호]
 
 
 
+
