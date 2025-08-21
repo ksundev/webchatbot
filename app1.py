@@ -11,13 +11,18 @@ from langchain_core.output_parsers import StrOutputParser
 from langchain_core.runnables import RunnablePassthrough
 from langchain_core.prompts import PromptTemplate
 from langchain_openai import ChatOpenAI, OpenAIEmbeddings
+from langchain_community.retrievers import BM25Retriever
+from langchain.retrievers import EnsembleRetriever
 from dotenv import load_dotenv
 import json
 import threading
 import time
 
+
 app = Flask(__name__)
 app.secret_key = 'your-secret-key-here'  # 세션을 위한 시크릿 키
+
+
 
 # 환경변수 로드
 load_dotenv()
@@ -29,6 +34,9 @@ ADMIN_PASSWORD = "1234"  # 실제 사용시 더 복잡한 비밀번호로 변경
 JSON_PATH = "rag_input_sample1.json"
 VECTOR_DIR = "vectorstore"
 embeddings = OpenAIEmbeddings()
+
+bm25_retriever = None
+hybrid_retriever = None
 
 # === 전역 싱글톤 객체들 (위로 올리기) ===
 vectorstore = None
